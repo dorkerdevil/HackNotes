@@ -1,4 +1,7 @@
-Hack Notes
+Hack_Notes
+##########################################D0rkerDevil Notes(small)########################################
+Note:For Penetration tester and BugBounty Hunters
+Warning:Please Do not Misuse in illigal activities.
 
 echo -e "HEAD /HTTP/1.0\n\n" | nc -vv website.com
 echo -e "HEAD /HTTP/1.0\n\n" | openssl s_client
@@ -206,5 +209,9 @@ done
 3. Launch Nikto:
 mkdir results
 ./nikto-loop.sh targets.txt
+
+
+Note:These are small note more to be added soon
+This -copy belongs to @D0rkerDevil
 
 
